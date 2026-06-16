@@ -1,5 +1,15 @@
-# forma-pod-plitku
+# Форма под плитку
 
-Static SEO catalog website for paving stone molds by Formasuper, with product pages, image-based catalog data, lead forms, and marketplace seller information.
+Статический сайт-каталог для GitHub Pages.
 
-Codex write access checked on 2026-06-16.
+## Уже загружено
+- Главная страница с 3D-плиточной раскладкой.
+- Разделы каталога из прайса: 27 разделов, 219 товаров подготовлены локально.
+- Страницы: контакты, отзывы, продавцам на маркетплейсах.
+- CNAME для домена `формаподплитку.рф` в punycode: `xn--80aimiddncicf6aob.xn--p1ai`.
+
+## Следующие шаги
+1. Включить GitHub Pages: Settings -> Pages -> Deploy from a branch -> main -> root.
+2. Прописать DNS у регистратора домена.
+3. Загрузить полный JSON-каталог и изображения товаров по артикулам.
+4. Подключить обработчик заявок для email и Telegram.
