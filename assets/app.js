@@ -43,11 +43,23 @@ function normalizeKey(value) {
     .toUpperCase();
 }
 
-function resolveImage(article) {
+function resolveImageId(article) {
   const key = normalizeKey(article);
   const base = key.split('.')[0];
-  const id = IMAGE_INDEX[key] || IMAGE_INDEX[base] || Object.entries(IMAGE_INDEX).find(([candidate]) => candidate.startsWith(`${key}.`))?.[1];
-  return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w800` : '';
+  return IMAGE_INDEX[key] || IMAGE_INDEX[base] || Object.entries(IMAGE_INDEX).find(([candidate]) => candidate.startsWith(`${key}.`))?.[1] || '';
+}
+
+function driveUrls(id) {
+  return [
+    `https://lh3.googleusercontent.com/d/${id}=w900`,
+    `https://drive.google.com/uc?export=view&id=${id}`,
+    `https://drive.google.com/thumbnail?id=${id}&sz=w1000`,
+  ];
+}
+
+function resolveImage(article) {
+  const id = resolveImageId(article);
+  return id ? driveUrls(id)[0] : '';
 }
 
 function normalizeCatalog(source) {
@@ -64,15 +76,41 @@ function normalizeCatalog(source) {
           perM2: item[3],
           price: item[4],
           image: item[5] || resolveImage(item[0]),
+          driveId: resolveImageId(item[0]),
         })),
       };
     }
-    return section;
+    return {
+      ...section,
+      products: (section.products || []).map((product) => ({
+        ...product,
+        image: product.image || resolveImage(product.article),
+        driveId: product.driveId || resolveImageId(product.article),
+      })),
+    };
   });
 }
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]));
+}
+
+function bindImageFallbacks(scope = document) {
+  scope.querySelectorAll('img[data-drive-id]').forEach((img) => {
+    if (img.dataset.boundImageFallback) return;
+    img.dataset.boundImageFallback = '1';
+    img.addEventListener('error', () => {
+      const urls = driveUrls(img.dataset.driveId);
+      const next = Number(img.dataset.imageAttempt || '0') + 1;
+      if (next < urls.length) {
+        img.dataset.imageAttempt = String(next);
+        img.src = urls[next];
+        return;
+      }
+      img.closest('.product-image')?.classList.add('image-missing');
+      img.replaceWith(Object.assign(document.createElement('span'), { textContent: 'Фото' }));
+    });
+  });
 }
 
 async function renderCatalog() {
@@ -101,10 +139,11 @@ async function renderCatalog() {
         return !query || haystack.includes(query);
       });
       if (!products.length) return '';
-      return `<article class="catalog-section" id="${escapeHtml(section.id)}"><h2>${escapeHtml(section.name)}</h2><div class="product-grid">${products.map((product) => `<article class="product-card"><div class="product-image">${product.image ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" loading="lazy">` : '<span>Фото</span>'}</div><div class="body"><div class="product-meta">Артикул ${escapeHtml(product.article)}</div><h3>${escapeHtml(product.name)}</h3><div class="product-meta">Габариты: ${escapeHtml(product.size || 'уточняются')} · шт/м2: ${escapeHtml(product.perM2 || '-')}</div><div class="product-price">${escapeHtml(product.price)} ₽/шт</div><button data-open-lead data-product="${escapeHtml(product.article)}">Заказать</button></div></article>`).join('')}</div></article>`;
+      return `<article class="catalog-section" id="${escapeHtml(section.id)}"><h2>${escapeHtml(section.name)}</h2><div class="product-grid">${products.map((product) => `<article class="product-card"><div class="product-image">${product.image ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" loading="lazy" data-drive-id="${escapeHtml(product.driveId)}" data-image-attempt="0">` : '<span>Фото</span>'}</div><div class="body"><div class="product-meta">Артикул ${escapeHtml(product.article)}</div><h3>${escapeHtml(product.name)}</h3><div class="product-meta">Габариты: ${escapeHtml(product.size || 'уточняются')} · шт/м2: ${escapeHtml(product.perM2 || '-')}</div><div class="product-price">${escapeHtml(product.price)} ₽/шт</div><button data-open-lead data-product="${escapeHtml(product.article)}">Заказать</button></div></article>`).join('')}</div></article>`;
     }).join('');
     root.innerHTML = html || '<p class="form-note">По этому запросу ничего не найдено.</p>';
     bindLeadButtons(root);
+    bindImageFallbacks(root);
   };
 
   search?.addEventListener('input', render);
