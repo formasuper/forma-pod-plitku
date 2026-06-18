@@ -186,3 +186,4 @@ function bindTileStage() {
 
 updateHeroCopy();
 bindTileStage();
+import('/assets/lead.js?v=20260618').catch(() => {});
