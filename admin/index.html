@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Редактор каталога FORMASUPER</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=admin-20260618">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Форма под плитку">
+      <img src="/assets/logo.svg" alt="" width="58" height="58">
+      <span><b>Редактор каталога</b><small>Ручные правки перед загрузкой в GitHub</small></span>
+    </a>
+    <nav><a href="/">Главная</a><a href="/catalog/">Каталог</a><a class="active" href="/admin/">Админка</a></nav>
+  </header>
+
+  <main class="admin-shell">
+    <section class="page-hero compact">
+      <p class="eyebrow">Админ-панель</p>
+      <h1>Ручное редактирование каталога</h1>
+      <p>Измените позицию, скачайте обновленный файл и загрузите его в репозиторий вместо <b>data/catalog.json</b>.</p>
+    </section>
+
+    <div class="admin-note">
+      Эта версия работает без сервера и паролей: изменения сохраняются в скачиваемый JSON-файл. Прямая запись в GitHub из браузера потребует отдельной OAuth-настройки.
+    </div>
+
+    <div class="admin-toolbar">
+      <input id="adminSearch" type="search" placeholder="Артикул или название">
+      <select id="adminSection"><option value="">Все разделы</option></select>
+      <button id="downloadJson" type="button">Скачать catalog.json</button>
+      <label class="primary-link" for="importJson">Импорт JSON</label>
+      <input id="importJson" type="file" accept="application/json,.json" hidden>
+    </div>
+
+    <section class="admin-grid">
+      <div class="admin-list" id="adminList"></div>
+      <form class="admin-editor" id="adminEditor">
+        <h2>Позиция каталога</h2>
+        <label>Раздел<input id="fieldSection" disabled></label>
+        <label>Артикул<input id="fieldArticle"></label>
+        <label>Название<textarea id="fieldName"></textarea></label>
+        <label>Размер<input id="fieldSize"></label>
+        <label>Шт/м2<input id="fieldPerM2"></label>
+        <label>Цена<input id="fieldPrice"></label>
+        <label>Изображение URL или data:image<textarea id="fieldImage" placeholder="/assets/products/118.jpg или https://..."></textarea></label>
+        <label>Загрузить картинку в эту позицию<input id="fieldImageFile" type="file" accept="image/*"></label>
+        <img class="admin-preview" id="imagePreview" alt="Предпросмотр">
+        <button type="submit">Применить к позиции</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    let catalog;
+    let flat = [];
+    let current = null;
+
+    const list = document.getElementById('adminList');
+    const search = document.getElementById('adminSearch');
+    const sectionFilter = document.getElementById('adminSection');
+    const editor = document.getElementById('adminEditor');
+    const fields = {
+      section: document.getElementById('fieldSection'),
+      article: document.getElementById('fieldArticle'),
+      name: document.getElementById('fieldName'),
+      size: document.getElementById('fieldSize'),
+      perM2: document.getElementById('fieldPerM2'),
+      price: document.getElementById('fieldPrice'),
+      image: document.getElementById('fieldImage'),
+      imageFile: document.getElementById('fieldImageFile'),
+      preview: document.getElementById('imagePreview'),
+    };
+
+    function productAt(ref) {
+      return catalog.sections[ref.sectionIndex][2][ref.productIndex];
+    }
+
+    function rebuildFlat() {
+      flat = [];
+      sectionFilter.innerHTML = '<option value="">Все разделы</option>';
+      catalog.sections.forEach((section, sectionIndex) => {
+        const option = document.createElement('option');
+        option.value = String(sectionIndex);
+        option.textContent = section[1];
+        sectionFilter.append(option);
+        (section[2] || []).forEach((product, productIndex) => {
+          flat.push({ sectionIndex, productIndex, sectionName: section[1], product });
+        });
+      });
+    }
+
+    function renderList() {
+      const q = search.value.trim().toLowerCase();
+      const sectionValue = sectionFilter.value;
+      list.innerHTML = '';
+      flat.filter((ref) => {
+        if (sectionValue && String(ref.sectionIndex) !== sectionValue) return false;
+        const haystack = [ref.product[0], ref.product[1], ref.sectionName].join(' ').toLowerCase();
+        return !q || haystack.includes(q);
+      }).forEach((ref) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'admin-item' + (current && current.sectionIndex === ref.sectionIndex && current.productIndex === ref.productIndex ? ' active' : '');
+        button.textContent = `${ref.product[0]} · ${ref.product[1]}`;
+        button.addEventListener('click', () => selectProduct(ref));
+        list.append(button);
+      });
+    }
+
+    function selectProduct(ref) {
+      current = ref;
+      const product = productAt(ref);
+      fields.section.value = ref.sectionName;
+      fields.article.value = product[0] ?? '';
+      fields.name.value = product[1] ?? '';
+      fields.size.value = product[2] ?? '';
+      fields.perM2.value = product[3] ?? '';
+      fields.price.value = product[4] ?? '';
+      fields.image.value = product[5] ?? '';
+      fields.preview.src = product[5] || '';
+      renderList();
+    }
+
+    function applyEditor() {
+      if (!current) return;
+      const product = productAt(current);
+      product[0] = fields.article.value.trim();
+      product[1] = fields.name.value.trim();
+      product[2] = fields.size.value.trim();
+      product[3] = fields.perM2.value.trim();
+      product[4] = fields.price.value.trim();
+      product[5] = fields.image.value.trim();
+      current.product = product;
+      renderList();
+    }
+
+    function downloadCatalog() {
+      applyEditor();
+      const blob = new Blob([JSON.stringify(catalog, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'catalog.json';
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    fields.image.addEventListener('input', () => { fields.preview.src = fields.image.value.trim(); });
+    fields.imageFile.addEventListener('change', () => {
+      const file = fields.imageFile.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        fields.image.value = reader.result;
+        fields.preview.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+    editor.addEventListener('submit', (event) => { event.preventDefault(); applyEditor(); });
+    search.addEventListener('input', renderList);
+    sectionFilter.addEventListener('change', renderList);
+    document.getElementById('downloadJson').addEventListener('click', downloadCatalog);
+    document.getElementById('importJson').addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      catalog = JSON.parse(await file.text());
+      rebuildFlat();
+      selectProduct(flat[0]);
+      renderList();
+    });
+
+    fetch('/data/catalog.json', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((data) => {
+        catalog = data;
+        rebuildFlat();
+        selectProduct(flat[0]);
+        renderList();
+      })
+      .catch(() => {
+        list.innerHTML = '<p class="form-note" style="padding:16px">Не удалось загрузить catalog.json.</p>';
+      });
+  </script>
+</body>
+</html>
