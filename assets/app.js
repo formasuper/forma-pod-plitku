@@ -153,9 +153,36 @@ async function renderCatalog() {
 
 renderCatalog();
 
-const stage = document.getElementById('tileStage');
-stage?.addEventListener('pointermove', (event) => {
-  const rect = stage.getBoundingClientRect();
-  stage.style.setProperty('--mx', ((event.clientX - rect.left) / rect.width - 0.5).toFixed(2));
-  stage.style.setProperty('--my', ((event.clientY - rect.top) / rect.height - 0.5).toFixed(2));
-});
+function updateHeroCopy() {
+  const h1 = document.querySelector('.hero-copy h1');
+  if (h1) h1.textContent = 'Формы для тротуарной плитки по выгодным ценам';
+  const meta = document.querySelector('meta[name="description"]');
+  if (meta) meta.content = meta.content.replace('Открытые цены', 'Формы для плитки по выгодным ценам');
+}
+
+function bindTileStage() {
+  const stage = document.getElementById('tileStage');
+  if (!stage) return;
+  const tiles = [...stage.querySelectorAll('span')];
+  const reset = () => tiles.forEach((tile) => tile.style.setProperty('--lift', '0px'));
+  const move = (event) => {
+    const rect = stage.getBoundingClientRect();
+    const pointerX = event.clientX - rect.left;
+    const pointerY = event.clientY - rect.top;
+    stage.style.setProperty('--mx', ((pointerX / rect.width) - 0.5).toFixed(2));
+    stage.style.setProperty('--my', ((pointerY / rect.height) - 0.5).toFixed(2));
+    tiles.forEach((tile) => {
+      const tileRect = tile.getBoundingClientRect();
+      const centerX = tileRect.left - rect.left + tileRect.width / 2;
+      const centerY = tileRect.top - rect.top + tileRect.height / 2;
+      const distance = Math.hypot(pointerX - centerX, pointerY - centerY);
+      const lift = Math.max(0, 42 - distance * 0.16);
+      tile.style.setProperty('--lift', `${lift.toFixed(1)}px`);
+    });
+  };
+  stage.addEventListener('pointermove', move);
+  stage.addEventListener('pointerleave', reset);
+}
+
+updateHeroCopy();
+bindTileStage();
