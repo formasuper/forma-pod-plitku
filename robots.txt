@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://формаподплитку.рф/sitemap.xml
+Host: формаподплитку.рф
