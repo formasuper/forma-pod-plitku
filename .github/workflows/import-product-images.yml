@@ -10,10 +10,15 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: product-image-import
+  cancel-in-progress: true
+
 jobs:
   import-images:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,12 +35,27 @@ jobs:
           rm -rf assets/products
           mkdir -p assets/products
           python - <<'PY'
+          from contextlib import contextmanager
           from pathlib import Path
+          import signal
           import gdown
 
           folder_url = "https://drive.google.com/drive/folders/1Ah2AuOUZf4ebgwViswWfopHkvtBlXHle?usp=sharing"
           output_dir = Path("assets/products")
           output_dir.mkdir(parents=True, exist_ok=True)
+
+          @contextmanager
+          def time_limit(seconds):
+              def handler(signum, frame):
+                  raise TimeoutError(f"download took longer than {seconds} seconds")
+
+              previous = signal.signal(signal.SIGALRM, handler)
+              signal.alarm(seconds)
+              try:
+                  yield
+              finally:
+                  signal.alarm(0)
+                  signal.signal(signal.SIGALRM, previous)
 
           files = gdown.download_folder(
               url=folder_url,
@@ -52,13 +72,16 @@ jobs:
               name = Path(item.path).name
               target = output_dir / name
               try:
-                  result = gdown.download(id=item.id, output=str(target), quiet=False, use_cookies=False)
+                  with time_limit(45):
+                      result = gdown.download(id=item.id, output=str(target), quiet=False, use_cookies=False)
                   if result:
                       downloaded += 1
                   else:
                       skipped.append(name)
               except Exception as exc:
                   skipped.append(name)
+                  if target.exists():
+                      target.unlink()
                   print(f"Skipped {name}: {exc}")
 
           print(f"Downloaded {downloaded} product images. Skipped {len(skipped)} files.")
