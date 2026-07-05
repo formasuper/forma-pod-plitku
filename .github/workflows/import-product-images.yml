@@ -18,7 +18,7 @@ jobs:
   import-images:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 18
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -60,7 +60,7 @@ jobs:
               name = Path(item.path).name
               target = output_dir / name
               try:
-                  subprocess.run([sys.executable, "-c", downloader, item.id, str(target)], timeout=8, check=True)
+                  subprocess.run([sys.executable, "-c", downloader, item.id, str(target)], timeout=4, check=True)
                   downloaded += 1
               except Exception as exc:
                   skipped.append(name)
