@@ -37,7 +37,6 @@ jobs:
               output="assets/products",
               quiet=False,
               use_cookies=False,
-              remaining_ok=True,
           )
           PY
 
