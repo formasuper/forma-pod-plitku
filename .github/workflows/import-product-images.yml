@@ -31,9 +31,22 @@ jobs:
       - name: Download product images
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "gdown==6.1.0"
-          rm -rf assets/products
           mkdir -p assets/products
+
+          python -m pip install "gdown==5.2.0"
+          python - <<'PY'
+          import gdown
+
+          gdown.download_folder(
+              url="https://drive.google.com/drive/folders/1Ah2AuOUZf4ebgwViswWfopHkvtBlXHle?usp=sharing",
+              output="assets/products",
+              quiet=False,
+              use_cookies=False,
+              remaining_ok=True,
+          )
+          PY
+
+          python -m pip install --force-reinstall "gdown==6.1.0"
           python - <<'PY'
           from pathlib import Path
           import subprocess
@@ -59,16 +72,18 @@ jobs:
           for item in files:
               name = Path(item.path).name
               target = output_dir / name
+              if target.exists() and target.stat().st_size > 0:
+                  continue
               try:
                   subprocess.run([sys.executable, "-c", downloader, item.id, str(target)], timeout=4, check=True)
                   downloaded += 1
               except Exception as exc:
                   skipped.append(name)
-                  if target.exists():
+                  if target.exists() and target.stat().st_size == 0:
                       target.unlink()
                   print(f"Skipped {name}: {exc}")
 
-          print(f"Downloaded {downloaded} product images. Skipped {len(skipped)} files.")
+          print(f"Downloaded {downloaded} additional product images. Skipped {len(skipped)} files.")
           if skipped:
               print("Skipped files:")
               for name in skipped:
