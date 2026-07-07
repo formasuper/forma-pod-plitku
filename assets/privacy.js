@@ -1,5 +1,6 @@
 const COOKIE_NOTICE_KEY = 'formasuper_cookie_notice_accepted';
 const PRIVACY_URL = '/privacy/';
+const PRIVACY_CSS_URL = '/assets/privacy.css?v=20260707';
 
 function storageGet(key) {
   try {
@@ -15,6 +16,15 @@ function storageSet(key, value) {
   } catch (error) {
     // If storage is blocked, the notice can simply appear again later.
   }
+}
+
+function ensurePrivacyStyles() {
+  if (document.querySelector('link[data-privacy-styles]')) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = PRIVACY_CSS_URL;
+  link.dataset.privacyStyles = '1';
+  document.head.append(link);
 }
 
 function ensureFooterPrivacyLink() {
@@ -65,6 +75,7 @@ function showCookieNotice() {
 }
 
 function initPrivacyFeatures() {
+  ensurePrivacyStyles();
   ensureFooterPrivacyLink();
   ensureLeadConsent();
   showCookieNotice();
