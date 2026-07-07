@@ -50,6 +50,7 @@ async function submitLead(event) {
 
   const payload = Object.fromEntries(new FormData(form).entries());
   delete payload.messengerOther;
+  delete payload.personalDataConsent;
   payload.page = window.location.href;
 
   try {
@@ -72,3 +73,4 @@ async function submitLead(event) {
 
 findLeadForms().forEach(prepareForm);
 document.addEventListener('submit', submitLead, true);
+import('/assets/privacy.js?v=20260707').catch(() => {});
